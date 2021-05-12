@@ -26,7 +26,7 @@ onnotificationclick = (event) => {
     });
   event.waitUntil(new Promise((resolve) => {
     setTimeout(() => {
-      clients.openWindow('1.html');
+      clients.openWindow('on-click.html');
       resolve();
     }, 0);
   }));
