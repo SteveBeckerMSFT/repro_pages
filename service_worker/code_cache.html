@@ -1,0 +1,36 @@
+<html>
+
+<head>
+</head>
+
+<body>
+    <button onclick="load_script()">Load Script</button>
+    <div id="log"></div><br />
+</body>
+<script>
+    "use strict";
+
+    function log(message) {
+        document.getElementById("log").innerHTML += `${message}<br/>`;
+    }
+
+
+    navigator.serviceWorker.register("service_worker.js")
+        .then((result) => {
+            registration = result;
+            log("register() succeeded");
+        }).catch((error) => {
+            log(`register() failed: ${error}.`);
+        });
+
+    log(`controller: ${navigator.serviceWorker.controller}`);
+
+    function load_script() {
+        const script_element = document.createElement('script');
+        script_element.src = 'load_image.js';
+        document.body.appendChild(script_element);
+    }
+
+</script>
+
+</html>
