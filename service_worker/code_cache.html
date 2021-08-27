@@ -8,7 +8,6 @@
     <button onclick="load_script()">Load Script</button>
     <div id="log"></div><br />
 </body>
-<script src="app.js"></script>
 <script>
     "use strict";
 
@@ -30,6 +29,10 @@
         const script_element = document.createElement('script');
         script_element.src = 'load_image.js';
         document.body.appendChild(script_element);
+
+        const script_element = document.createElement('script');
+        script_element.src = 'app.js';
+        document.body.appendChild(script_element);        
     }
 
 </script>
