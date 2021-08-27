@@ -4,6 +4,7 @@ oninstall = (install_event) => {
   install_event.waitUntil(
     caches.open('v1').then(cache => {
       return cache.addAll([
+        'code_cache.html',
         'load_image.js',
         'image.png',
       ]);
