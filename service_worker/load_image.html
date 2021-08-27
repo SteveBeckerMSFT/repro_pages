@@ -1,0 +1,20 @@
+<html>
+
+<head>
+    <script src='load_image.js'></script>
+</head>
+
+<body>
+    <div id="log"></div><br />
+</body>
+<script>
+    "use strict";
+
+    function log(message) {
+        document.getElementById("log").innerHTML += `${message}<br/>`;
+    }
+
+    log(`controller: ${navigator.serviceWorker.controller}`);
+</script>
+
+</html>
