@@ -45,8 +45,10 @@
                 registration.pushManager.subscribe({ applicationServerKey: kSecondApplicationServerKey, userVisibleOnly: false })]
             );
         }).then(results => {
-            log(JSON.stringify(results[0]));
-            log(results[1].reason);
+            const subscription = results[0];
+            const error = results[1];
+            const error_string = `${error.name} - ${error.message}`;
+            log(JSON.stringify([subscription, error_string]));
         });
     }
 
