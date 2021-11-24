@@ -42,7 +42,7 @@
         navigator.serviceWorker.ready.then(registration => {
             return Promise.allSettled([
                 registration.pushManager.subscribe({ applicationServerKey: kFirstApplicationServerKey, userVisibleOnly: true }),
-                registration.pushManager.subscribe({ applicationServerKey: kSecondApplicationServerKey, userVisibleOnly: true })]
+                registration.pushManager.subscribe({ applicationServerKey: kSecondApplicationServerKey, userVisibleOnly: false })]
             );
         }).then(results => {
             log(JSON.stringify(results[0]));
