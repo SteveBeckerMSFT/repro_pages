@@ -1,0 +1,195 @@
+<html>
+
+<head>
+  <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+  <button onclick="requestPermission()">Request Permission</button>
+  <button onclick="showToast()">Show Window Toast</button>
+  <button onclick="closeToast()">Close Window Toast</button>
+  <button onclick="showToastWithInvalidImage()">Show Window Toast With Invalid Image</button>
+  <button onclick="showServiceWorkerToast()">Show ServiceWorker Toast</button>
+  <button onclick="showServiceWorkerToastWithTag()">Show ServiceWorker Toast with Tag</button>
+  <button onclick="showServiceWorkerToastWithTagWithRenotify()">Show ServiceWorker Toast with Tag and with
+    renotify</button>
+  <button onclick="showServiceWorkerGlobalScopeToast()">Show ServiceWorkerGlobalScope Toast</button>
+  <button onclick="showDedicatedWorkerToast()">Show DedicatedWorkerGlobalScope Toast</button>
+  <button onclick="closeDedicatedWorkerToast()">Close DedicatedWorkerGlobalScope Toast</button>
+  <button onclick="showToastHistory()">Show Toast History</button>
+  <button onclick="clearToastHistory()">Clear Toast History</button>
+  <div id="permissionStatus"></div>
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  let toastId = localStorage.getItem("toastId");
+  if (toastId === null) {
+    toastId = 1;
+    localStorage.setItem("toastId", toastId);
+  }
+
+  let registration = null;
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function logNotification(notification) {
+    log(`<b>${notification.title}</b>`);
+    log(notification.body);
+    log("");
+  }
+
+  function updatePermissionStatus() {
+    document.getElementById("permissionStatus").innerHTML = `Notification Permission: ${Notification.permission}`;
+  }
+
+  function requestPermission() {
+    Notification.requestPermission()
+      .then((result) => {
+        updatePermissionStatus();
+        log("requestPermission() succeeded");
+      }).catch((error) => {
+        log(`requestPermission() failed: ${error}.`);
+      });
+  }
+
+  let windowNotificationList = [];
+
+  function showToast() {
+    const notification = new Notification(`Window Title ${++toastId}`, { body: `Window Body ${++toastId}`, tag: "jim-bagleaducia", icon: "../resources/happy.jpg", image: "../resources/happy.jpg", requireInteraction: false, silent: true });
+    localStorage.setItem("toastId", toastId);
+    windowNotificationList.push(notification);
+    notification.onclick = () => {
+      log(`Window 'click' event for: ${notification.title}, timestamp: ${new Date(notification.timestamp)}, requireInteraction: ${notification.requireInteraction}, silent: ${notification.silent}`);
+    };
+    notification.onerror = () => {
+      log(`Window 'error' event for: ${notification.title}`);
+    };
+    notification.onshow = () => {
+      log(`Window 'show' event for: ${notification.title}`);
+    };
+    notification.onclose = () => {
+      log(`Window 'close' event for: ${notification.title}`);
+    };
+  }
+
+  function closeToast() {
+    windowNotificationList.forEach((toast) => {
+      toast.close();
+    });
+    windowNotificationList = [];
+  }
+
+  function showToastWithInvalidImage() {
+    const notification = new Notification(`Window Title ${++toastId}`, { body: `Window Body ${++toastId}`, icon: "../resources/happy2.jpg", requireInteraction: false, silent: true });
+    notification.onclick = () => {
+      log(`Window 'click' event for: ${notification.title}, timestamp: ${new Date(notification.timestamp)}, requireInteraction: ${notification.requireInteraction}, silent: ${notification.silent}`);
+    };
+    notification.onerror = () => {
+      log(`Window 'error' event for: ${notification.title}`);
+    };
+  }
+
+  navigator.serviceWorker.register("service-worker.js", { scope: '/repro_pages/notifications_without_favicon/' })
+    .then((result) => {
+      registration = result;
+      log("register() succeeded");
+    }).catch((error) => {
+      log(`register() failed: ${error}.`);
+    });
+
+  navigator.serviceWorker.onmessage = (messageEvent) => {
+    log(messageEvent.data);
+  }
+
+  function showServiceWorkerToast() {
+    if (registration !== null) {
+      registration.showNotification(`ServiceWorker Title ${++toastId}`, { body: `ServiceWorker Body: ${toastId}`, icon: "../resources/happy.jpg", requireInteraction: false, silent: true })
+        .then(() => {
+          log("showNotification() succeeded");
+        }).catch((error) => {
+          log(`showNotification() failed: ${error}.`);
+        });
+    }
+  }
+
+  function showServiceWorkerToastWithTag() {
+    if (registration !== null) {
+      registration.showNotification(`ServiceWorker Title with Tag ${++toastId}`, { body: `ServiceWorker Body: Tag ${toastId}`, icon: "../resources/happy.jpg", requireInteraction: false, silent: true, tag: "ServiceWorkerTag" })
+        .then(() => {
+          log("showNotification() succeeded");
+        }).catch((error) => {
+          log(`showNotification() failed: ${error}.`);
+        });
+    }
+  }
+
+  function showServiceWorkerToastWithTagWithRenotify() {
+    if (registration !== null) {
+      registration.showNotification(`ServiceWorker Title with Tag with renotify ${++toastId}`, { body: `ServiceWorker Body: Tag with renotify ${toastId}`, icon: "../resources/happy.jpg", requireInteraction: false, silent: true, tag: "ServiceWorkerTagWithoutRenotify", renotify: true })
+        .then(() => {
+          log("showNotification() succeeded");
+        }).catch((error) => {
+          log(`showNotification() failed: ${error}.`);
+        });
+    }
+  }
+
+  function showServiceWorkerGlobalScopeToast() {
+    if (navigator.serviceWorker.controller !== null) {
+      navigator.serviceWorker.controller.postMessage(++toastId);
+    }
+  }
+
+  const dedicatedWorker = new Worker("dedicated-worker.js");
+  dedicatedWorker.onmessage = (messageEvent) => {
+    log(messageEvent.data);
+  }
+
+  function showDedicatedWorkerToast() {
+    dedicatedWorker.postMessage(++toastId);
+  }
+
+  function closeDedicatedWorkerToast() {
+    dedicatedWorker.postMessage("close");
+  }
+
+  function showToastHistory() {
+    if (registration !== null) {
+      registration.getNotifications()
+        .then((resultList) => {
+          log(`Found <b>${resultList.length}</b> notifications:`)
+          log("");
+
+          resultList.forEach((notification) => {
+            logNotification(notification);
+          });
+        }).catch((error) => {
+          log(`getNotifications() failed: ${error}.`);
+        });
+    }
+  }
+
+  function clearToastHistory() {
+    if (registration !== null) {
+      registration.getNotifications()
+        .then((resultList) => {
+          log(`Clearing <b>${resultList.length}</b> notifications!`)
+
+          resultList.forEach((notification) => {
+            notification.close();
+          });
+        }).catch((error) => {
+          log(`getNotifications() failed: ${error}.`);
+        });
+    }
+  }
+
+  updatePermissionStatus();
+
+</script>
+
+</html>
