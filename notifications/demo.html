@@ -108,7 +108,7 @@
 
   function showServiceWorkerToast() {
     if (registration !== null) {
-      registration.showNotification(`ServiceWorker Title ${++toastId}`, { body: `ServiceWorker Body: ${toastId}`, icon: "../resources/happy.jpg", requireInteraction: false, silent: true })
+      registration.showNotification(`ServiceWorker Title ${++toastId}`, { body: `ServiceWorker Body: ${toastId}`, icon: "../resources/happy.jpg", actions: [  { action: "open_window", title: "Open New Window" }, { action: "focus", title: "Focus Existing Window"} ]})
         .then(() => {
           log("showNotification() succeeded");
         }).catch((error) => {
