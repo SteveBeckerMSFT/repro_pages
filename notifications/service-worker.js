@@ -41,18 +41,19 @@ onnotificationclick = (event) => {
         }
       }));
   }
+};
 
-  onnotificationclose = (event) => {
-    clients.matchAll()
-      .then((resultList) => {
-        resultList.forEach((client) => {
-          const notification = event.notification;
-          client.postMessage(`ServiceWorkerGlobalScope 'close' event for: ${notification.title} , timestamp: ${new Date(notification.timestamp)}, requireInteraction: ${notification.requireInteraction}, silent: ${notification.silent}`);
-        });
+onnotificationclose = (event) => {
+  clients.matchAll()
+    .then((resultList) => {
+      resultList.forEach((client) => {
+        const notification = event.notification;
+        client.postMessage(`ServiceWorkerGlobalScope 'close' event for: ${notification.title} , timestamp: ${new Date(notification.timestamp)}, requireInteraction: ${notification.requireInteraction}, silent: ${notification.silent}`);
       });
-  };
+    });
+};
 
-  onfetch = (fetchEvent) => {
-    console.log(fetchEvent.request.url);
-    fetchEvent.respondWith(fetch(fetchEvent.request));
-  }
+onfetch = (fetchEvent) => {
+  console.log(fetchEvent.request.url);
+  fetchEvent.respondWith(fetch(fetchEvent.request));
+};
