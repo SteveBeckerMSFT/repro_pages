@@ -17,6 +17,7 @@
   <button onclick="showServiceWorkerGlobalScopeToast()">Show ServiceWorkerGlobalScope Toast</button>
   <button onclick="showDedicatedWorkerToast()">Show DedicatedWorkerGlobalScope Toast</button>
   <button onclick="closeDedicatedWorkerToast()">Close DedicatedWorkerGlobalScope Toast</button>-->
+  <button onclick="showIncomingCallToast()">Show Incoming Call Toast</button>
   <button onclick="showToastHistory()">Show Toast History</button>
   <button onclick="clearToastHistory()">Clear Toast History</button>
   <div id="permissionStatus"></div>
@@ -156,6 +157,17 @@
 
   function closeDedicatedWorkerToast() {
     dedicatedWorker.postMessage("close");
+  }
+
+  function showIncomingCallToast() {
+    if (registration !== null) {
+      registration.showNotification(`IncomingCall Title ${++toastId}`, { body: `ServiceWorker Body: ${toastId}`, icon: "../resources/happy.jpg", scenario:"incoming-call", actions: [  { action: "accept-audio-call", title: "audio" }, { action: "accept-video-call", title: "video"} ]})
+        .then(() => {
+          log("showNotification() succeeded");
+        }).catch((error) => {
+          log(`showNotification() failed: ${error}.`);
+        });
+    }
   }
 
   function showToastHistory() {
