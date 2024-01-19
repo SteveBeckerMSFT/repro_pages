@@ -1,0 +1,58 @@
+<html>
+
+<head>
+<!-- Run "msedge.exe --use-fake-ui-for-media-stream" to bypass permission checks for enumerateDevices() -->
+</head>
+
+<body>
+  <button onclick="update_permission_status()">Update Permission status</button>
+  <button onclick="request_permission({ video: true })">Request Camera Permission</button>
+  <button onclick="request_permission({ audio: true })">Request MicrophonePermission</button>
+  <button onclick="enumerate_devices()">Enumerate Devices</button>
+  <div id="permission_status"></div>
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function update_permission_status() {
+    Promise.all([navigator.permissions.query({ name: 'camera' }), navigator.permissions.query({ name: 'microphone' })])
+      .then(permission_result_list => {
+        document.getElementById("permission_status").innerHTML =
+          `<b>Camera Permission:</b> ${permission_result_list[0].state}, <b>Microphone Permission:</b> ${permission_result_list[1].state}`;
+      });
+
+  }
+
+  function request_permission(device_kind) {
+    navigator.mediaDevices.getUserMedia(device_kind)
+      .then((result) => {
+        update_permission_status();
+        log(`requestPermission(${JSON.stringify(device_kind)}) succeeded`);
+      }).catch(error => {
+        log(`requestPermission(${JSON.stringify(device_kind)}) failed: ${error}.`);
+      });
+  }
+
+  function enumerate_devices() {
+    navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+        log("enumerateDevices() succeeded");
+        devices.forEach(device => {
+          log(`<b>Device ID:</b> '${device.id}', <b>Kind:</b> '${device.kind}', `
+            + `<b>Group ID:</b> '${device.groupId}', <b>Label:</b> '${device.label}'`);
+        });
+      }).catch(error => {
+        log(`enumerateDevices() failed: ${error}.`);
+      });
+  }
+
+  update_permission_status();
+
+</script>
+
+</html>
