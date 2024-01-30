@@ -5,9 +5,9 @@
 </head>
 
 <body>
-  <button onclick="update_permission_status()">Update Permission status</button>
+  <button onclick="update_permission_status()">Update Permission Status</button>
   <button onclick="request_permission({ video: true })">Request Camera Permission</button>
-  <button onclick="request_permission({ audio: true })">Request MicrophonePermission</button>
+  <button onclick="request_permission({ audio: true })">Request Microphone Permission</button>
   <button onclick="enumerate_devices()">Enumerate Devices</button>
   <div id="permission_status"></div>
   <div id="log"></div><br />
@@ -43,7 +43,7 @@
       .then(devices => {
         log("enumerateDevices() succeeded");
         devices.forEach(device => {
-          log(`<b>Device ID:</b> '${device.id}', <b>Kind:</b> '${device.kind}', `
+          log(`<b>Device ID:</b> '${device.deviceId}', <b>Kind:</b> '${device.kind}', `
             + `<b>Group ID:</b> '${device.groupId}', <b>Label:</b> '${device.label}'`);
         });
       }).catch(error => {
