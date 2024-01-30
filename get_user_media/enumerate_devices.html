@@ -38,14 +38,28 @@
       });
   }
 
+  function log_media_device_infos(name, kind, devices) {
+    let filtered_devices = devices.filter(device => device.kind === kind);
+    
+    log(`<b>${filtered_devices.length} ${name}(s) found:</b>`);
+    for (let i = 0; i < filtered_devices.length; i++) {
+      log(`<b>Device ${i}:</b>`);
+      log(`&nbsp;&nbsp;<b>ID:</b> '${filtered_devices[i].deviceId}'`);
+      log(`&nbsp;&nbsp;<b>Kind:</b> '${filtered_devices[i].kind}'`);
+      log(`&nbsp;&nbsp;<b>Group ID:</b> '${filtered_devices[i].groupId}'`);
+      log(`&nbsp;&nbsp;<b>Label:</b> '${filtered_devices[i].label}'`);
+      log('')
+    }
+  }
+
   function enumerate_devices() {
     navigator.mediaDevices.enumerateDevices()
       .then(devices => {
         log("enumerateDevices() succeeded");
-        devices.forEach(device => {
-          log(`<b>Device ID:</b> '${device.deviceId}', <b>Kind:</b> '${device.kind}', `
-            + `<b>Group ID:</b> '${device.groupId}', <b>Label:</b> '${device.label}'`);
-        });
+        log("")
+        log_media_device_infos("camera", "videoinput", devices);
+        log_media_device_infos("microphone", "audioinput", devices);
+        log_media_device_infos("speaker", "audiooutput", devices);       
       }).catch(error => {
         log(`enumerateDevices() failed: ${error}.`);
       });
