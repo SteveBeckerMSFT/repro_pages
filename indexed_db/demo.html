@@ -1,0 +1,106 @@
+<html>
+
+<head>
+</head>
+
+<body>
+  <button onclick="open_database()">Open Database</button>
+  <button onclick="enumerate_databases()">Enumerate Databases</button>
+  <button onclick="delete_database()">Delete Database</button>
+  <div><br/></div>
+  <div id="database_operations" style="visibility: hidden;">
+    <button onclick="close_database()">Close Database</button>
+  </div>
+  <div><br/></div>  
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  const kDatabaseName = "test_database";
+
+  let g_database_version = 1;
+  let g_database_promise = null;
+
+  function hide_database_operations() {
+    document.getElementById("database_operations").style.visibility = "hidden";
+  }
+
+  function show_database_operations() {
+    document.getElementById("database_operations").style.visibility = "visible";
+  }
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function open_database() {
+    if (g_database_promise) {
+      log("open_database() succeeded with existing database");
+      // Database already exists.
+      return;
+    }
+    g_database_promise = new Promise((fulfill, reject) => {
+      const open_request = indexedDB.open(kDatabaseName, g_database_version);
+      open_request.onblocked = () => {
+        reject("ERROR: open() failed: blocked.")
+      };
+      open_request.onupgradeneeded = () => {
+        reject("ERROR: open() failed: upgradeneeded.")
+      };
+      open_request.onerror = () => {
+        reject(`ERROR: open() failed with: ${open_request.error}.`)
+      };
+      open_request.onsuccess = () => {
+        const database = open_request.result;
+        log(`open_database() succeeded with name: '${database.name}', version: ${database.version}.`);
+        fulfill(open_request.result);
+        show_database_operations();
+      };
+    });
+  }
+
+  function enumerate_databases() {
+    indexedDB.databases().then(databases => {
+      log("enumerate_databases() succeeded.");
+      log(`<b>${databases.length} databases found:</b>`);
+      log('');
+      for (let i = 0; i < databases.length; i++) {
+        log(`<b>Database ${i}:</b>`);
+        log(`&nbsp;&nbsp;<b>Name:</b> '${databases[i].name}'`);
+        log(`&nbsp;&nbsp;<b>Version:</b> '${databases[i].version}'`);
+        log('');
+      }
+    }).catch(error => {
+      log(`enumerateDatabases() failed: ${error}.`);
+    });
+  }
+
+  function delete_database() {
+    const open_request = indexedDB.deleteDatabase(kDatabaseName);
+    open_request.onblocked = () => {
+      log("ERROR: deleteDatabase() failed: blocked.")
+    };
+    open_request.onupgradeneeded = () => {
+      log("ERROR: deleteDatabase() failed: upgradeneeded.")
+    };
+    open_request.onerror = () => {
+      log(`ERROR: deleteDatabase() failed with: ${open_request.error}.`)
+    };
+    open_request.onsuccess = () => {
+      log("delete_database() succeeded.");
+    };
+  }
+
+  function close_database() {
+    g_database_promise.then(database => {
+      database.close();
+      log("close_database() succeeded.");
+      g_database_promise = null;
+      hide_database_operations();
+    });
+  }
+
+</script>
+
+</html>

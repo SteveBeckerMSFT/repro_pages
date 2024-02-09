@@ -1,0 +1,35 @@
+<html>
+
+<head>
+</head>
+
+<body>
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function get_display_media() {
+    log("get_display_media() started.");
+    navigator.mediaDevices.getDisplayMedia({ video: true })
+      .then(stream => {
+        log("get_display_media() succeeded.");
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        document.body.appendChild(video);
+      })
+      .catch(error => {
+        log(`get_display_media() failed with: ${error}.`);
+      });
+  }
+
+  get_display_media();
+
+</script>
+
+</html>
