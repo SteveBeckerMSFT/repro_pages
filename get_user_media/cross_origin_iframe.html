@@ -1,0 +1,72 @@
+<html>
+
+<head>
+    <!-- Run "msedge.exe --use-fake-ui-for-media-stream" to bypass permission checks for enumerateDevices() -->
+</head>
+
+<body>
+    <button onclick="update_permission_status()">Update Permission Status</button>
+    <button onclick="request_permission({ video: true })">Request Camera Permission</button>
+    <button onclick="request_permission({ audio: true })">Request Microphone Permission</button>
+    <div id="permission_status"></div>
+    <div id="log"></div><br />
+</body>
+<script>
+    "use strict";
+
+    function log(message) {
+        document.getElementById("log").innerHTML += `${message}<br/>`;
+    }
+
+    function update_permission_status() {
+        Promise.all([navigator.permissions.query({ name: 'camera' }), navigator.permissions.query({ name: 'microphone' })])
+            .then(permission_result_list => {
+                document.getElementById("permission_status").innerHTML =
+                    `<b>Camera Permission:</b> ${permission_result_list[0].state}, <b>Microphone Permission:</b> ${permission_result_list[1].state}`;
+            });
+
+    }
+
+    function request_permission(device_kind) {
+        navigator.mediaDevices.getUserMedia(device_kind)
+            .then((result) => {
+                update_permission_status();
+                log(`requestPermission(${JSON.stringify(device_kind)}) succeeded`);
+            }).catch(error => {
+                log(`requestPermission(${JSON.stringify(device_kind)}) failed: ${error}.`);
+            });
+    }
+
+    function log_media_device_infos(name, kind, devices) {
+        let filtered_devices = devices.filter(device => device.kind === kind);
+
+        log(`<b>${filtered_devices.length} ${name}(s) found:</b>`);
+        for (let i = 0; i < filtered_devices.length; i++) {
+            log(`<b>Device ${i}:</b>`);
+            log(`&nbsp;&nbsp;<b>ID:</b> '${filtered_devices[i].deviceId}'`);
+            log(`&nbsp;&nbsp;<b>Kind:</b> '${filtered_devices[i].kind}'`);
+            log(`&nbsp;&nbsp;<b>Group ID:</b> '${filtered_devices[i].groupId}'`);
+            log(`&nbsp;&nbsp;<b>Label:</b> '${filtered_devices[i].label}'`);
+            log('')
+        }
+    }
+
+    update_permission_status();
+
+</script>
+<div>
+    <b>cross origin iframe</b><br/>
+    <iframe src="https://webrtc.github.io/samples/src/content/getusermedia/gum/" width="800" height="400"></iframe>
+</div>
+<br/>
+<div>
+    <b>cross origin iframe with allow="camera microphone"</b><br/>
+    <iframe src="https://webrtc.github.io/samples/src/content/getusermedia/gum/" allow="camera microphone" width="800" height="400"></iframe>
+</div>
+<br/>
+<div>
+    <b>cross origin iframe with allow="camera microphone 'none'"</b><br/>
+    <iframe src="https://webrtc.github.io/samples/src/content/getusermedia/gum/" allow="camera microphone 'none'" width="800" height="400"></iframe>
+</div>
+
+</html>
