@@ -1,0 +1,41 @@
+<html>
+
+<head>
+</head>
+
+<body>
+  <video src="test_bear.mp4" id="test_video"></video>
+  <br/>
+  <button onclick="play()">Play</button>
+  <button onclick="pause()">Pause</button>
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function play() {
+    let video = document.getElementById("test_video");
+    video.play().then(() => {
+      log(`play() succeeded`);
+    }).catch(error => {
+      log(`play() failed: ${error}`);
+    });
+  }
+
+  function pause() {
+    let video = document.getElementById("test_video");
+    video.pause().then(() => {
+      log(`pause() succeeded`);
+    }).catch(error => {
+      log(`pause() failed: ${error}`);
+    });
+  }  
+
+  play();
+</script>
+
+</html>
