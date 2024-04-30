@@ -8,9 +8,16 @@
 
 <body>
   <input id='write_amount' type='number' value='10' />
-  <button onclick='write_megabytes()'>Write Megabytes</button>
+  <input type="radio" id="megabytes" name="unit" value="Megabytes" checked>
+  <label for="megabytes">megabytes</label>
+  <input type="radio" id="bytes" name="unit" value="Bytes">
+  <label for="bytes">bytes</label><br />
+  <br />
+  <button onclick='write_random_bytes()'>Write Random Bytes</button>
   <button onclick='request_persistent_storage()'>Request Persistent Storage</button><br /><br />
   <div id='storage_usage'></div>
+  <div id='storage_quota'></div>
+  <div id='storage_usage_details'></div>
   <hr />
   <div id='log'></div><br />
 </body>
@@ -28,11 +35,14 @@
   async function update_storage_usage() {
     const is_persisted = await navigator.storage.persisted();
     const storage_estimate = await navigator.storage.estimate();
+
     const used_megabytes = to_mb_str(storage_estimate.usage);
     const available_bytes = to_mb_str(storage_estimate.quota);
     const percent_used = (storage_estimate.usage / storage_estimate.quota * 100).toFixed(2);
-    document.getElementById('storage_usage').textContent = `Persisted: ${is_persisted}, ` +
-      `Used: ${used_megabytes}, Available: ${available_bytes}, Percent Used: ${percent_used}%`;
+
+    document.getElementById('storage_usage').textContent = `Used: ${percent_used}% == (${used_megabytes} / ${available_bytes})`;
+    document.getElementById('storage_quota').textContent = `Quota: ${storage_estimate.quota}, Persisted: ${is_persisted}`;
+    document.getElementById('storage_usage_details').textContent = ``;
 
     const usage_details = storage_estimate.usageDetails;
     if (usage_details) {
@@ -43,29 +53,34 @@
     }
   }
 
-  function write_megabytes() {
+  function write_random_bytes() {
     if (!db_) {
       log('ERROR: Database not open!');
       return;
     }
-    const megabytes_to_write = parseInt(document.getElementById('write_amount').value);
-    const random_megabytes_to_write = new ArrayBuffer(megabytes_to_write * 1024 * 1024);
+
+    let bytes_to_write = parseInt(document.getElementById('write_amount').value);
+    if (document.getElementById('megabytes').checked) {
+      bytes_to_write *= (1024 * 1024);
+    }
+
+    const random_bytes = new ArrayBuffer(bytes_to_write);
 
     let write_offset = 0;
-    let bytes_remaining = random_megabytes_to_write.byteLength;
+    let bytes_remaining = random_bytes.byteLength;
     while (bytes_remaining > 0) {
       const bytes_to_fill = Math.min(bytes_remaining, 65536);
-      crypto.getRandomValues(new Uint8Array(random_megabytes_to_write, write_offset, bytes_to_fill));
+      crypto.getRandomValues(new Uint8Array(random_bytes, write_offset, bytes_to_fill));
       write_offset += bytes_to_fill;
       bytes_remaining -= bytes_to_fill;
     }
 
-    const write_request = db_.transaction('store', 'readwrite').objectStore('store').add(random_megabytes_to_write);
+    const write_request = db_.transaction('store', 'readwrite').objectStore('store').add(random_bytes);
     write_request.onerror = (event) => {
       log(`ERROR: Write failed: ${write_request.error}`);
     }
     write_request.onsuccess = (event) => {
-      log(`Wrote ${megabytes_to_write} MB with key ${write_request.result}.`);
+      log(`Wrote ${bytes_to_write} bytes with key ${write_request.result}.`);
     }
   }
 
@@ -78,14 +93,6 @@
       }
     });
   }
-
-  navigator.serviceWorker.register("service-worker.js", { scope: '/repro_pages/indexed_db/' })
-    .then((result) => {
-      registration = result;
-      log("serviceWorker.register() succeeded");
-    }).catch((error) => {
-      log(`serviceWorker.register() failed: ${error}.`);
-    });
 
   let db_ = null;
   const open_db_request = indexedDB.open('test', /*version=*/1)
