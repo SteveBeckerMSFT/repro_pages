@@ -1,0 +1,112 @@
+<html>
+
+<head>
+  <title>IndexedDB Disk Space Usage</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon-32x32.png">
+</head>
+
+<body>
+  <input id='write_amount' type='number' value='10' />
+  <button onclick='write_megabytes()'>Write Megabytes</button>
+  <button onclick='request_persistent_storage()'>Request Persistent Storage</button><br /><br />
+  <div id='storage_usage'></div>
+  <hr />
+  <div id='log'></div><br />
+</body>
+<script>
+  'use strict';
+
+  function log(message) {
+    document.getElementById('log').innerHTML += `${message}<br/>`;
+  }
+
+  function to_mb_str(bytes) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  async function update_storage_usage() {
+    const is_persisted = await navigator.storage.persisted();
+    const storage_estimate = await navigator.storage.estimate();
+    const used_megabytes = to_mb_str(storage_estimate.usage);
+    const available_bytes = to_mb_str(storage_estimate.quota);
+    const percent_used = (storage_estimate.usage / storage_estimate.quota * 100).toFixed(2);
+    document.getElementById('storage_usage').textContent = `Persisted: ${is_persisted}, ` +
+      `Used: ${used_megabytes}, Available: ${available_bytes}, Percent Used: ${percent_used}%`;
+
+    const usage_details = storage_estimate.usageDetails;
+    if (usage_details) {
+      const usage_details_str = Object.entries(usage_details).map(([key, value]) => {
+        return `${key}: ${to_mb_str(value)}`
+      }).join(', ');
+      document.getElementById('storage_usage').textContent += `, ${usage_details_str}`;
+    }
+  }
+
+  function write_megabytes() {
+    if (!db_) {
+      log('ERROR: Database not open!');
+      return;
+    }
+    const megabytes_to_write = parseInt(document.getElementById('write_amount').value);
+    const random_megabytes_to_write = new ArrayBuffer(megabytes_to_write * 1024 * 1024);
+
+    let write_offset = 0;
+    let bytes_remaining = random_megabytes_to_write.byteLength;
+    while (bytes_remaining > 0) {
+      const bytes_to_fill = Math.min(bytes_remaining, 65536);
+      crypto.getRandomValues(new Uint8Array(random_megabytes_to_write, write_offset, bytes_to_fill));
+      write_offset += bytes_to_fill;
+      bytes_remaining -= bytes_to_fill;
+    }
+
+    const write_request = db_.transaction('store', 'readwrite').objectStore('store').add(random_megabytes_to_write);
+    write_request.onerror = (event) => {
+      log(`ERROR: Write failed: ${write_request.error}`);
+    }
+    write_request.onsuccess = (event) => {
+      log(`Wrote ${megabytes_to_write} MB with key ${write_request.result}.`);
+    }
+  }
+
+  function request_persistent_storage() {
+    navigator.storage.persist().then(granted => {
+      if (granted) {
+        log('Persistent storage granted.');
+      } else {
+        log('ERROR: Persistent storage denied.');
+      }
+    });
+  }
+
+  navigator.serviceWorker.register("service-worker.js", { scope: '/repro_pages/indexed_db/' })
+    .then((result) => {
+      registration = result;
+      log("serviceWorker.register() succeeded");
+    }).catch((error) => {
+      log(`serviceWorker.register() failed: ${error}.`);
+    });
+
+  let db_ = null;
+  const open_db_request = indexedDB.open('test', /*version=*/1)
+  open_db_request.onupgradeneeded = (event) => {
+    log('Creating database.');
+    db_ = event.target.result;
+    db_.createObjectStore('store', { autoIncrement: true })
+  }
+  open_db_request.onsuccess = (event) => {
+    log('Database opened.');
+    db_ = event.target.result;
+  }
+  open_db_request.onblocked = (event) => {
+    log('ERROR: Open database blocked.');
+  }
+  open_db_request.onerror = (event) => {
+    log(`ERROR: Database open failed: ${open_db_request.error}`);
+  }
+
+  update_storage_usage();
+  setInterval(update_storage_usage, 1000);
+</script>
+
+</html>
