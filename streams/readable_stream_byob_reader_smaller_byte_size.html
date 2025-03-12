@@ -1,0 +1,28 @@
+<!Doctype html>
+<html lang=en>
+  <head>
+    <meta charset=utf-8>
+    <script>
+      async function run() {
+        let readBytes = 0;
+
+        const reader = fileInput.files[0].stream().getReader({mode: "byob"});
+        while(true) {
+          const { done, value: buffer } = await reader.read(new DataView(new ArrayBuffer(3)));
+          if (done) return;
+
+          console.log("read:", readBytes += buffer.byteLength, "total:", fileInput.files[0].size);
+
+          // The size of the returned buffer is not equal to the size of the initially supplied buffer.
+          // It seems like it reaches the end of the file wherefore only the remaining bytes are put into the buffer.
+          // However the file end isn't reached yet so it should provide a buffer of length 3.
+          // This happens exactly at 2097152 bytes = 2 Mebibyte
+          if (buffer.byteLength !== 3) throw new Error('WRONG BUFFER SIZE: ' + buffer.byteLength);
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <input type="file" id="fileInput" onchange="run()">
+  </body>
+</html>
