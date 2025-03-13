@@ -1,43 +1,87 @@
 <!Doctype html>
 <html lang=en>
-  <head>
-    <meta charset=utf-8>
-    <script>
-      function log(message) {
-        document.getElementById("log").innerHTML += `${message}<br/>`;
+
+<head>
+  <meta charset=utf-8>
+  <script>
+    function log(message) {
+      document.getElementById("log").innerHTML += `${message}<br/>`;
+    }
+
+    let reader = null;
+    let readBytes = 0;
+    let totalSize = 0;
+
+    async function setup() {
+      if (reader) {
+        log("Error: reader already exists!");
+        return;
       }
 
-      async function run() {
-        const startTime = performance.now();
-        let readBytes = 0;
+      const startTime = performance.now();
+      totalSize = fileInput.files[0].size;
+      reader = fileInput.files[0].stream().getReader({ mode: "byob" });
 
-        const reader = fileInput.files[0].stream().getReader({mode: "byob"});
-        while(true) {
-          const { done, value: buffer } = await reader.read(new DataView(new ArrayBuffer(3)));
-          if (done) return;
-
-          readBytes += buffer.byteLength;
-          //console.log("read:", readBytes, "total:", fileInput.files[0].size);
-
-          // The size of the returned buffer is not equal to the size of the initially supplied buffer.
-          // It seems like it reaches the end of the file wherefore only the remaining bytes are put into the buffer.
-          // However the file end isn't reached yet so it should provide a buffer of length 3.
-          // This happens exactly at 2097152 bytes = 2 Mebibyte
-          if (buffer.byteLength !== 3) {
-            const duration = performance.now() - startTime;
-            log(`WRONG BUFFER SIZE: ${buffer.byteLength} at ${readBytes} bytes with file size ${fileInput.files[0].size}`);
-            log(`Duration: ${duration} ms`);
-            throw new Error('WRONG BUFFER SIZE: ' + buffer.byteLength);
-          }
+      while (true) {
+        const { done, value: buffer } = await reader.read(new DataView(new ArrayBuffer(3)));
+        if (done) {
+          log(`done reading ${readBytes} bytes of ${totalSize} bytes`);
+          const duration = performance.now() - startTime;
+          log(`Duration: ${duration} ms`);
+          return;
         }
-        log(`done reading ${readBytes} bytes of ${fileInput.files[0].size} bytes`);
-        const duration = performance.now() - startTime;
-        log(`Duration: ${duration} ms`);
+
+        // The size of the returned buffer is not equal to the size of the initially supplied buffer.
+        // It seems like it reaches the end of the file wherefore only the remaining bytes are put into the buffer.
+        // However the file end isn't reached yet so it should provide a buffer of length 3.
+        // This happens exactly at 2097152 bytes = 2 Mebibyte
+        if (buffer.byteLength !== 3) {
+          const duration = performance.now() - startTime;
+          log(`WRONG BUFFER SIZE: ${buffer.byteLength} at ${readBytes} bytes with file size ${fileInput.files[0].size}`);
+          log(`Duration: ${duration} ms`);
+          throw new Error('WRONG BUFFER SIZE: ' + buffer.byteLength);
+        }
+
+        readBytes += buffer.byteLength;
+        if (readBytes >= 2097100) {
+          // Stop reading before the error to setup the repro.
+          log(`Read ${readBytes} bytes of ${totalSize} bytes`);
+          log(`Duration: ${duration} ms`);
+          return;
+        }
       }
-    </script>
-  </head>
-  <body>
-    <input type="file" id="fileInput" onchange="run()">
-    <div id="log"></div>
-  </body>
+    }
+
+    async function read_more() {
+      const startTime = performance.now();
+
+      while (true) {
+        const { done, value: buffer } = await reader.read(new DataView(new ArrayBuffer(3)));
+        if (done) {
+          log(`done reading ${readBytes} bytes of ${totalSize} bytes`);
+          const duration = performance.now() - startTime;
+          log(`Duration: ${duration} ms`);
+          return;
+        }
+
+        readBytes += buffer.byteLength;
+
+        if (buffer.byteLength !== 3) {
+          const duration = performance.now() - startTime;
+          log(`WRONG BUFFER SIZE: ${buffer.byteLength} at ${readBytes} bytes with file size ${fileInput.files[0].size}`);
+          log(`Duration: ${duration} ms`);
+          throw new Error('WRONG BUFFER SIZE: ' + buffer.byteLength);
+        }
+      }
+    }
+
+  </script>
+</head>
+
+<body>
+  <input type="file" id="fileInput" onchange="setup()"><br />
+  <button onclick="read_more()">Read more</button>
+  <div id="log"></div>
+</body>
+
 </html>
