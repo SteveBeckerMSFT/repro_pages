@@ -53,7 +53,7 @@
 
   function showServiceWorkerToast() {
     if (registration !== null) {
-      registration.showNotification(`Title ${++toastId}`, { body: `Body: ${toastId}`,)
+      registration.showNotification(`Title ${++toastId}`, { body: `Body: ${toastId}` })
         .then(() => {
           log("showNotification() succeeded");
         }).catch((error) => {
