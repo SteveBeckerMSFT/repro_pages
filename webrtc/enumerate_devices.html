@@ -1,0 +1,52 @@
+<html>
+
+<head>
+  <title>Enumerate Devices</title>
+</head>
+
+<body>
+  <button onclick="request_permission()">Request permission</button>
+  <button onclick="enumerate_devices()">Enumerate Devices</button>
+  <div><br/></div>  
+  <div id='log'></div><br />
+</body>
+<script>
+  'use strict';
+
+  function log(message) {
+    document.getElementById('log').innerHTML += `${message}<br/>`;
+  }
+
+  function request_permission() {
+    navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+      .then(stream => {
+        log('Permission granted to access media devices.');
+        stream.getTracks().forEach(track => track.stop()); // Stop the tracks to release the media devices
+      })
+      .catch(error => {
+        log(`Error requesting permission: ${error}`);
+      });
+  }
+
+  function enumerate_devices() {
+    navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+        log(`Found ${devices.length} devices:`);
+        for (let i = 0; i < devices.length; i++) {
+          const device = devices[i];
+          log(`<b>Device ${i + 1}:</b>`);
+          log(`kind=${device.kind}`);
+          log(`label=${device.label}`);
+          log(`id=${device.deviceId}`);
+          log(`groupId=${device.groupId}`);
+          log('<br/>');
+        }
+      })
+      .catch(error => {
+        log(`Error enumerating devices: ${error}`);
+      });
+  }
+
+</script>
+
+</html>
