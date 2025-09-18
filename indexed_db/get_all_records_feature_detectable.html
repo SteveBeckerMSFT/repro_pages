@@ -1,0 +1,76 @@
+<html>
+
+<head>
+</head>
+
+<body>
+  <div id="log"></div><br />
+</body>
+<script>
+  "use strict";
+
+  const kDatabaseName = "test_database";
+
+  let g_database_version = 3;
+  let g_database_promise = null;
+
+  function hide_database_operations() {
+    document.getElementById("database_operations").style.visibility = "hidden";
+  }
+
+  function show_database_operations() {
+    document.getElementById("database_operations").style.visibility = "visible";
+  }
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function open_database() {
+    if (g_database_promise) {
+      log("open_database() succeeded with existing database");
+      // Database already exists.
+      return;
+    }
+    g_database_promise = new Promise((fulfill, reject) => {
+      const open_request = indexedDB.open(kDatabaseName, g_database_version);
+      open_request.onblocked = () => {
+        reject("ERROR: open() failed: blocked.")
+      };
+      open_request.onupgradeneeded = () => {
+        const database = open_request.result;
+        let object_store = database.createObjectStore("test_store", { keyPath: "id" });
+      };
+      open_request.onerror = () => {
+        reject(`ERROR: open() failed with: ${open_request.error}.`)
+      };
+      open_request.onsuccess = () => {
+        const database = open_request.result;
+        log(`open_database() succeeded with name: '${database.name}', version: ${database.version}.`);
+
+        const tx = database.transaction("test_store", "readwrite");
+        const object_store = tx.objectStore("test_store");
+
+        if ('getAllRecords' in object_store) {
+          log("getAllRecords() is supported.");
+        } else {
+          try {
+            let query = [1, 2, 3];
+            query['doop'] = "soop";
+            const get_all_request = object_store.getAll(null);
+          } catch (e) {
+            log(`getAllRecords() failed with error: ${e.message}`);
+          }
+          log("getAllRecords() is not supported.");
+        }
+        fulfill(open_request.result);
+        show_database_operations();
+      };
+    });
+  }
+
+  open_database();
+
+</script>
+
+</html>

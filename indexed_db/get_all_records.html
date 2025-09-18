@@ -1,0 +1,560 @@
+<html>
+  <head>
+    <title>IndexedDB getAllRecords()</title>
+  </head>
+
+  <body>
+    <button onclick="get_all('objectstore', 'values', 'next')">
+      IDBObjectStore::getAll()
+    </button>
+    <button onclick="get_all('objectstore', 'keys', 'next')">
+      IDBObjectStore::getAllKeys()</button
+    ><br />
+    <button onclick="get_all('index', 'values', 'next')">
+      IDBIndex::getAll()
+    </button>
+    <button onclick="get_all('index', 'keys', 'next')">
+      IDBIndex::getAllKeys()
+    </button>
+    <br />
+    <button onclick="get_all('objectstore', 'keys_and_values', 'next')">
+      IDBObjectStore::getAllRecords() : Forward Direction
+    </button>
+    <button onclick="get_all('index', 'keys_and_values', 'next')">
+      IDBIndex::getAllRecords() : Forward Direction
+    </button>
+    <br />
+    <button onclick="get_all('objectstore', 'keys_and_values', 'prev')">
+      IDBObjectStore::getAllRecords() : Reverse Direction
+    </button>
+    <button onclick="get_all('index', 'keys_and_values', 'prev')">
+      IDBIndex::getAllRecords() : Reverse Direction
+    </button>
+    <br />
+    <button onclick="get_all('objectstore', 'keys_and_values', 'nextunique')">
+      IDBObjectStore::getAllRecords() : Forward Unique Direction
+    </button>
+    <button onclick="get_all('index', 'keys_and_values', 'nextunique')">
+      IDBIndex::getAllRecords() : Forward Unique Direction
+    </button>
+    <br />
+    <button onclick="get_all('objectstore', 'keys_and_values', 'prevunique')">
+      IDBObjectStore::getAllRecords() : Reverse Unique Direction
+    </button>
+    <button onclick="get_all('index', 'keys_and_values', 'prevunique')">
+      IDBIndex::getAllRecords() : Reverse Unique Direction
+    </button>
+    <br />
+    <button onclick="explainer_example_1()">
+      Explainer 1: Read records into a Map
+    </button>
+    <br />
+    <button onclick="explainer_example_2()">
+      Explainer 2: IDBIndex batched record iteration in previous direction
+    </button>
+    <br />
+    <button onclick="explainer_example_3()">
+      Explainer 3: IDBObjectStore batched record iteration in forward direction
+    </button>
+    <br />
+    <button onclick="explainer_example_4()">Explainer 4: Output formats</button>
+    <button onclick="unique_reverse_iterator()">
+      Unique Reverse Iterator Example
+    </button>
+    <div id="log"></div>
+    <br />
+  </body>
+  <script>
+    "use strict";
+
+    const kDatabaseName = "videogames";
+    const kObjectStoreName = "nes_games";
+    const kIndexName = "genre";
+
+    const nes_game_list = [
+      {
+        name: "The Legend of Zelda",
+        developer: "Nintendo",
+        genre: "Action-adventure",
+        year: 1986,
+      },
+      {
+        name: "Super Mario Bros.",
+        developer: "Nintendo",
+        genre: "Platformer",
+        year: 1985,
+      },
+      {
+        name: "Metroid",
+        developer: "Nintendo",
+        genre: "Action-adventure",
+        year: 1986,
+      },
+      {
+        name: "Castlevania",
+        developer: "Konami",
+        genre: "Platformer",
+        year: 1986,
+      },
+      {
+        name: "Bubble Bobble",
+        developer: "Taito",
+        genre: "Platformer",
+        year: 1988,
+      },
+      {
+        name: "River City Ransom",
+        developer: "Technos Japan",
+        genre: "Beat 'em up",
+        year: 1989,
+      },
+      {
+        name: "Ice Hockey",
+        developer: "Nintendo",
+        genre: "Sports",
+        year: 1988,
+      },
+      {
+        name: "Punch-Out!!",
+        developer: "Nintendo",
+        genre: "Sports",
+        year: 1987,
+      },
+      {
+        name: "Contra",
+        developer: "Konami",
+        genre: "Run and gun",
+        year: 1987,
+      },
+      {
+        name: "Duck Hunt",
+        developer: "Nintendo",
+        genre: "Light gun shooter",
+        year: 1984,
+      },
+    ];
+
+    function log(message) {
+      document.getElementById("log").innerHTML += `${message}<br/>`;
+    }
+
+    function log_records(records) {
+      for (let i = 0; i < records.length; i++) {
+        log(
+          `result ${i}: key: ${records[i].key}, primaryKey: ${
+            records[i].primaryKey
+          }, value: ${JSON.stringify(records[i].value)}`
+        );
+      }
+    }
+
+    function log_array(records) {
+      for (let i = 0; i < records.length; i++) {
+        log(`result ${i}: ${JSON.stringify(records[i])}`);
+      }
+    }
+
+    onunhandledrejection = (e) => {
+      log(`${e.reason}`);
+    };
+
+    const database_promise = create_database().then(populate_database);
+
+    function create_database() {
+      return new Promise((resolve, reject) => {
+        const open_request = indexedDB.open(kDatabaseName, /*version=*/ 1);
+        open_request.onblocked = () => {
+          reject("ERROR: open() failed: blocked.");
+        };
+        open_request.onupgradeneeded = (event) => {
+          const database = event.target.result;
+          const object_store = database.createObjectStore(kObjectStoreName, {
+            autoIncrement: true,
+          });
+          object_store.createIndex(kIndexName, "genre", { unique: false });
+          log(`createObjectStore() '${kObjectStoreName}' succeeded.`);
+        };
+        open_request.onerror = () => {
+          reject(`ERROR: open() failed with: ${open_request.error}.`);
+        };
+        open_request.onsuccess = (event) => {
+          const database = event.target.result;
+          log(
+            `open_database() succeeded with name: '${database.name}', version: ${database.version}.`
+          );
+          return resolve(database);
+        };
+      });
+    }
+
+    function get_count(database) {
+      return new Promise((resolve, reject) => {
+        const read_transaction = database.transaction(
+          kObjectStoreName,
+          "readonly"
+        );
+        read_transaction.onerror = () => {
+          reject(
+            `ERROR: get_count() transaction failed with: ${read_transaction.error}.`
+          );
+        };
+        read_transaction.oncomplete = () => {
+          log(
+            `get_count() transaction succeeded with count: ${count_request.result}.`
+          );
+          resolve(count_request.result);
+        };
+
+        const object_store = read_transaction.objectStore(kObjectStoreName);
+        const count_request = object_store.count();
+        count_request.onerror = () => {
+          reject(
+            `ERROR: get_count() request failed with: ${count_request.error}.`
+          );
+        };
+        count_request.onsuccess = () => {
+          log(
+            `get_count() request succeeded with count: ${count_request.result}.`
+          );
+          resolve(count_request.result);
+        };
+      });
+    }
+
+    function add_game(object_store, game) {
+      return new Promise((resolve, reject) => {
+        const add_request = object_store.add(game);
+        add_request.onerror = () => {
+          reject(
+            `ERROR: add_game() '${game.name}' failed with: ${add_request.error}.`
+          );
+        };
+        add_request.onsuccess = () => {
+          log(
+            `add_game() '${game.name}' succeeded with key: ${add_request.result}.`
+          );
+          resolve();
+        };
+      });
+    }
+
+    async function populate_database(database) {
+      let count = await get_count(database);
+      if (count !== 0) {
+        return Promise.resolve(database);
+      }
+      return new Promise((resolve, reject) => {
+        const read_write_transaction = database.transaction(
+          kObjectStoreName,
+          "readwrite"
+        );
+        const object_store =
+          read_write_transaction.objectStore(kObjectStoreName);
+        for (let i = 0; i < nes_game_list.length; i++) {
+          add_game(object_store, nes_game_list[i]);
+        }
+        read_write_transaction.oncomplete = () => {
+          log(`populate_database() succeeded.`);
+          resolve(database);
+        };
+        read_write_transaction.onerror = () => {
+          reject(
+            `ERROR: populate_database() failed with: ${read_write_transaction.error}.`
+          );
+        };
+      });
+    }
+
+    function get_all(source_type, return_type, direction) {
+      database_promise.then((database) => {
+        const read_transaction = database.transaction(
+          kObjectStoreName,
+          "readonly"
+        );
+        read_transaction.onerror = () => {
+          log(
+            `ERROR: get_all() transaction failed with: ${read_transaction.error}.`
+          );
+        };
+        read_transaction.oncomplete = () => {
+          log(`get_all() transaction succeeded.`);
+        };
+        let source = read_transaction.objectStore(kObjectStoreName);
+        if (source_type == "index") {
+          source = source.index(kIndexName);
+        }
+        let get_all_request = null;
+        switch (return_type) {
+          case "values":
+            get_all_request = source.getAll();
+            break;
+          case "keys":
+            get_all_request = source.getAllKeys();
+            break;
+          case "keys_and_values":
+            get_all_request = source.getAllRecords({ direction });
+            break;
+        }
+        get_all_request.onsuccess = (event) => {
+          switch (return_type) {
+            case "values":
+            case "keys":
+              log_array(get_all_request.result);
+              break;
+            case "keys_and_values":
+              log_records(get_all_request.result);
+              break;
+          }
+        };
+        get_all_request.onerror = (event) => {
+          log(`ERROR: get_all() failed: ${get_all_request.error}`);
+        };
+      });
+    }
+
+    async function explainer_example_1() {
+      const database = await database_promise;
+      let records = await get_all_records_with_promise(
+        database,
+        kObjectStoreName,
+        /*query_options=*/ { count: 5 }
+      );
+      console.log(
+        "The second record in the database contains: " +
+          `primaryKey: ${records[1].primaryKey}, key: ${records[1].key}, value: ${records[1].vale}`
+      );
+      log_records(records);
+
+      records = await get_all_records_with_promise(
+        database,
+        kObjectStoreName,
+        /*query_options=*/ { count: 9, direction: "prev" },
+        kIndexName
+      );
+      const map = new Map(records.map(({ key, value }) => [key, value]));
+
+      log(`result_map size: ${map.size}`);
+      log(`result_map: ${JSON.stringify(Array.from(map.entries()))}`);
+      log(
+        `result_map[2]: indexKey: ${
+          map.get(2).indexKey
+        }, value: ${JSON.stringify(map.get(2))}`
+      );
+    }
+
+    async function get_all_records_with_promise(
+      database,
+      object_store_name,
+      query_options,
+      optional_index_name
+    ) {
+      return await new Promise((fulfill, reject) => {
+        // Create a read-only transaction.
+        const read_transaction = database.transaction(
+          object_store_name,
+          "readonly"
+        );
+
+        // Get the object store or index to query.
+        const object_store = read_transaction.objectStore(object_store_name);
+        let query_target = object_store;
+        if (optional_index_name) {
+          query_target = object_store.index(optional_index_name);
+        }
+
+        // Start the getAllRecords() request.
+        const request = query_target.getAllRecords(query_options);
+
+        // Resolve promise with results after success.
+        request.onsuccess = (event) => {
+          fulfill(request.result);
+        };
+
+        // Reject promise with error after failure.
+        request.onerror = () => {
+          reject(request.error);
+        };
+        read_transaction.onerror = () => {
+          reject(read_transaction.error);
+        };
+      });
+    }
+
+    // Create a batch iterator where each call to `next()` retrieves `batch_size` database
+    // records in `direction` order from `object_store_name` or `optional_index_name`.
+    async function* idb_batch_record_iterator(
+      database,
+      object_store_name,
+      direction,
+      batch_size,
+      optional_index_name
+    ) {
+      let is_done = false;
+
+      // Begin the iteration unbounded to retrieve the first or last records.
+      let query;
+
+      while (!is_done) {
+        const records = await get_all_records_with_promise(
+          database,
+          object_store_name,
+          /*query_options=*/ { query, count: batch_size, direction },
+          optional_index_name
+        );
+
+        if (records.length < batch_size) {
+          // We've iterated through all the database records!
+          is_done = true;
+          return records;
+        }
+
+        // Store the lower or upper bound for the next iteration.
+        const last_record_array_index = records.length - 1;
+        const last_record = records[last_record_array_index];
+        if (direction === "next" || direction === "nextunique") {
+          query = IDBKeyRange.lowerBound(last_record.key, /*exclusive=*/ true);
+        } else {
+          // direction === 'prev' || direction === 'prevunique'
+          query = IDBKeyRange.upperBound(last_record.key, /*exclusive=*/ true);
+        }
+        yield records;
+      }
+    }
+
+    let reverse_iterator = null;
+
+    async function explainer_example_2() {
+      const database = await database_promise;
+      if (!reverse_iterator) {
+        reverse_iterator = idb_batch_record_iterator(
+          database,
+          kObjectStoreName,
+          /*direction=*/ "prev",
+          /*batch_size=*/ 5,
+          kIndexName
+        );
+      }
+      const results = await reverse_iterator.next();
+      if (results.value) {
+        log_records(results.value);
+      }
+      log(`done: ${results.done}`);
+    }
+
+    let forward_iterator = null;
+
+    async function explainer_example_3() {
+      const database = await database_promise;
+      if (!forward_iterator) {
+        forward_iterator = idb_batch_record_iterator(
+          database,
+          kObjectStoreName,
+          /*direction=*/ "next",
+          /*batch_size=*/ 3
+        );
+      }
+      const results = await forward_iterator.next();
+      if (results.value) {
+        log_records(results.value);
+      }
+      log(`done: ${results.done}`);
+    }
+
+    async function unique_reverse_iterator() {
+      const database = await database_promise;
+      const read_transaction = database.transaction(
+        kObjectStoreName,
+        "readonly"
+      );
+      const object_store = read_transaction.objectStore(kObjectStoreName);
+      const index = object_store.index(kIndexName);
+      const cursor_request = index.openCursor(null, "prevunique");
+      let i = 0;
+      cursor_request.onsuccess = (event) => {
+        const cursor = cursor_request.result;
+        log(
+          `result ${i}: primaryKey: "${cursor.primaryKey}", key: "${
+            cursor.key
+          }", value: "${JSON.stringify(cursor.value)}"`
+        );
+        cursor.continue();
+        ++i;
+      };
+    }
+
+    function explainer_example_4() {
+      log(``);
+      log(`format1`);
+      let example_output = [];
+      for (let i = 0; i < nes_game_list.length; i++) {
+        example_output.push({
+          primaryKey: i,
+          value: nes_game_list[i],
+          key: nes_game_list[i].genre,
+        });
+      }
+      for (const { primaryKey, value, key } of example_output) {
+        log(
+          `key: ${primaryKey}, indexKey: ${key}, value: ${JSON.stringify(
+            value
+          )}`
+        );
+      }
+      log(``);
+      let map = new Map(
+        example_output.map(({ primaryKey, value, key }) => [
+          primaryKey,
+          { value, indexKey: key },
+        ])
+      );
+      for (const [key, value] of map) {
+        log(`key: ${key}, value: ${JSON.stringify(value)}`);
+      }
+      log(JSON.stringify(map.get(1).value));
+      log([map.get(1).indexKey]);
+
+      log(``);
+      log(`format2`);
+      let example_output2 = [];
+      for (let i = 0; i < nes_game_list.length; i++) {
+        example_output2.push({
+          indexKey: nes_game_list[i].genre,
+          record: { key: i, value: nes_game_list[i] },
+        });
+      }
+      for (const {
+        indexKey,
+        record: { key, value },
+      } of example_output2) {
+        log(
+          `key: ${key}, indexKey: ${indexKey}, value: ${JSON.stringify(value)}`
+        );
+      }
+      log(``);
+      let map2 = new Map(
+        example_output2.map(({ record: { key, value } }) => [key, value])
+      );
+      for (const [key, value] of map2) {
+        log(`key: ${key}, value: ${JSON.stringify(value)}`);
+      }
+
+      log(``);
+      log(`format3`);
+      let example_output3 = [];
+      for (let i = 0; i < nes_game_list.length; i++) {
+        example_output3.push([nes_game_list[i].genre, [i, nes_game_list[i]]]);
+      }
+      for (const [indexKey, [key, value]] of example_output3) {
+        log(
+          `key: ${key}, indexKey: ${indexKey}, value: ${JSON.stringify(value)}`
+        );
+      }
+      log(``);
+      let map3 = new Map(example_output3);
+      for (const [key, value] of map3) {
+        log(`key: ${key}, value: ${JSON.stringify(value)}`);
+      }
+      log(`second property value: ${JSON.stringify(example_output3[1][1][1])}`);
+    }
+  </script>
+</html>

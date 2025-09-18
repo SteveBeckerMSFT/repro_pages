@@ -1,0 +1,682 @@
+<html>
+
+<head>
+  <title>IndexedDB batched requests</title>
+</head>
+
+<body>
+  <button onclick="get_all('objectstore', 'keys_and_values', 'next')">
+    IDBObjectStore::getAllRecords()
+  </button>
+  <button onclick="explainer_example_1()">Reading from multiple noncontiguous records</button>
+  <button onclick="explainer_example_2()">Reading multiple ranges of records</button>
+  <br/>
+  <button onclick="explainer_example_3()">Writing multiple new records</button>
+  <button onclick="explainer_example_4()">Updating multiple existing records</button>
+  <br/>
+  <button onclick="explainer_example_5()">Deleting multiple noncontiguous records</button>
+  <button onclick="explainer_example_6()">Deleting multiple ranges of records</button>  
+  <div id="log"></div>
+  <br />
+</body>
+<script>
+  "use strict";
+
+  const kDatabaseName = "videogames";
+  const kObjectStoreName = "nes_games";
+  const kIndexName = "genre";
+
+  const nes_game_list = [
+    {
+      name: "The Legend of Zelda",
+      developer: "Nintendo",
+      genre: "Action-adventure",
+      year: 1986,
+    },
+    {
+      name: "Super Mario Bros.",
+      developer: "Nintendo",
+      genre: "Platformer",
+      year: 1985,
+    },
+    {
+      name: "Metroid",
+      developer: "Nintendo",
+      genre: "Action-adventure",
+      year: 1986,
+    },
+    {
+      name: "Castlevania",
+      developer: "Konami",
+      genre: "Platformer",
+      year: 1986,
+    },
+    {
+      name: "Bubble Bobble",
+      developer: "Taito",
+      genre: "Platformer",
+      year: 1988,
+    },
+    {
+      name: "River City Ransom",
+      developer: "Technos Japan",
+      genre: "Beat 'em up",
+      year: 1989,
+    },
+    {
+      name: "Ice Hockey",
+      developer: "Nintendo",
+      genre: "Sports",
+      year: 1988,
+    },
+    {
+      name: "Punch-Out!!",
+      developer: "Nintendo",
+      genre: "Sports",
+      year: 1987,
+    },
+    {
+      name: "Contra",
+      developer: "Konami",
+      genre: "Run and gun",
+      year: 1987,
+    },
+    {
+      name: "Duck Hunt",
+      developer: "Nintendo",
+      genre: "Light gun shooter",
+      year: 1984,
+    },
+  ];
+
+  function log(message) {
+    document.getElementById("log").innerHTML += `${message}<br/>`;
+  }
+
+  function log_records(records) {
+    for (let i = 0; i < records.length; i++) {
+      log(
+        `result ${i}: key: ${records[i].key}, primaryKey: ${records[i].primaryKey
+        }, value: ${JSON.stringify(records[i].value)}`
+      );
+    }
+  }
+
+  function log_array(records) {
+    for (let i = 0; i < records.length; i++) {
+      log(`result ${i}: ${JSON.stringify(records[i])}`);
+    }
+  }
+
+  onunhandledrejection = (e) => {
+    log(`${e.reason}`);
+  };
+
+  const database_promise = create_database().then(populate_database);
+
+  function create_database() {
+    return new Promise((resolve, reject) => {
+      const open_request = indexedDB.open(kDatabaseName, /*version=*/ 1);
+      open_request.onblocked = () => {
+        reject("ERROR: open() failed: blocked.");
+      };
+      open_request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        const object_store = database.createObjectStore(kObjectStoreName, {
+          autoIncrement: true,
+        });
+        object_store.createIndex(kIndexName, "genre", { unique: false });
+        log(`createObjectStore() '${kObjectStoreName}' succeeded.`);
+      };
+      open_request.onerror = () => {
+        reject(`ERROR: open() failed with: ${open_request.error}.`);
+      };
+      open_request.onsuccess = (event) => {
+        const database = event.target.result;
+        log(
+          `open_database() succeeded with name: '${database.name}', version: ${database.version}.`
+        );
+        return resolve(database);
+      };
+    });
+  }
+
+  function get_count(database) {
+    return new Promise((resolve, reject) => {
+      const read_transaction = database.transaction(
+        kObjectStoreName,
+        "readonly"
+      );
+      read_transaction.onerror = () => {
+        reject(
+          `ERROR: get_count() transaction failed with: ${read_transaction.error}.`
+        );
+      };
+      read_transaction.oncomplete = () => {
+        log(
+          `get_count() transaction succeeded with count: ${count_request.result}.`
+        );
+        resolve(count_request.result);
+      };
+
+      const object_store = read_transaction.objectStore(kObjectStoreName);
+      const count_request = object_store.count();
+      count_request.onerror = () => {
+        reject(
+          `ERROR: get_count() request failed with: ${count_request.error}.`
+        );
+      };
+      count_request.onsuccess = () => {
+        log(
+          `get_count() request succeeded with count: ${count_request.result}.`
+        );
+        resolve(count_request.result);
+      };
+    });
+  }
+
+  function add_game(object_store, game) {
+    return new Promise((resolve, reject) => {
+      const add_request = object_store.add(game);
+      add_request.onerror = () => {
+        reject(
+          `ERROR: add_game() '${game.name}' failed with: ${add_request.error}.`
+        );
+      };
+      add_request.onsuccess = () => {
+        log(
+          `add_game() '${game.name}' succeeded with key: ${add_request.result}.`
+        );
+        resolve();
+      };
+    });
+  }
+
+  async function populate_database(database) {
+    let count = await get_count(database);
+    if (count !== 0) {
+      return Promise.resolve(database);
+    }
+    return new Promise((resolve, reject) => {
+      const read_write_transaction = database.transaction(
+        kObjectStoreName,
+        "readwrite"
+      );
+      const object_store =
+        read_write_transaction.objectStore(kObjectStoreName);
+      for (let i = 0; i < nes_game_list.length; i++) {
+        add_game(object_store, nes_game_list[i]);
+      }
+      read_write_transaction.oncomplete = () => {
+        log(`populate_database() succeeded.`);
+        resolve(database);
+      };
+      read_write_transaction.onerror = () => {
+        reject(
+          `ERROR: populate_database() failed with: ${read_write_transaction.error}.`
+        );
+      };
+    });
+  }
+
+  function get_all(source_type, return_type, direction) {
+    database_promise.then(database => {
+      const read_transaction = database.transaction(
+        kObjectStoreName,
+        "readonly"
+      );
+      read_transaction.onerror = () => {
+        log(
+          `ERROR: get_all() transaction failed with: ${read_transaction.error}.`
+        );
+      };
+      read_transaction.oncomplete = () => {
+        log(`get_all() transaction succeeded.`);
+      };
+      let source = read_transaction.objectStore(kObjectStoreName);
+      if (source_type == "index") {
+        source = source.index(kIndexName);
+      }
+      let get_all_request = null;
+      switch (return_type) {
+        case "values":
+          get_all_request = source.getAll();
+          break;
+        case "keys":
+          get_all_request = source.getAllKeys();
+          break;
+        case "keys_and_values":
+          get_all_request = source.getAllRecords({ direction });
+          break;
+      }
+      get_all_request.onsuccess = (event) => {
+        switch (return_type) {
+          case "values":
+          case "keys":
+            log_array(get_all_request.result);
+            break;
+          case "keys_and_values":
+            log_records(get_all_request.result);
+            break;
+        }
+      };
+      get_all_request.onerror = (event) => {
+        log(`ERROR: get_all() failed: ${get_all_request.error}`);
+      };
+    });
+  }
+
+  function batched_get_all_polyfill(query_target, get_all_function_name, queries) {
+    const request_polyfill = new Object();
+    request_polyfill.onsuccess = null;
+    request_polyfill.onerror = null;
+    request_polyfill.result = null;
+    request_polyfill.error = null;
+
+    const query_requests = [];
+    const query_results = [];
+    const query_errors = [];
+
+    const maybe_complete_request = function () {
+      if (query_results.length + query_errors.length === queries.length) {
+        setTimeout(() => {
+          const event_polyfill = new Object();
+          event_polyfill.target = request_polyfill;
+          if (query_errors.length > 0) {
+            request_polyfill.error = query_errors[0];
+            if (typeof (request_polyfill.onerror) === "function") {
+              request_polyfill.onerror(event_polyfill);
+            }
+          } else {
+            request_polyfill.result = query_results;
+            if (typeof (request_polyfill.onsuccess) === "function") {
+              request_polyfill.onsuccess(event_polyfill)
+            }
+          }
+        }, 0);
+      }
+    };
+
+    for (const query of queries) {
+      try {
+        const get_all_request = query_target[get_all_function_name](query);
+        get_all_request.onsuccess = event => {
+          query_results.push(event.target.result);
+          maybe_complete_request();
+        };
+        get_all_request.onerror = event => {
+          query_errors.push(event.target.error);
+          maybe_complete_request();
+        };
+        query_requests.push(get_all_request);
+      } catch (error) {
+        query_errors.push(error);
+        maybe_complete_request();
+      }
+    }
+    return request_polyfill;
+  }
+
+  function explainer_example_1() {
+    database_promise.then(indexed_database => {
+      const read_transaction = indexed_database.transaction(kObjectStoreName);
+      read_transaction.oncomplete = () => {
+        log('explainer_example_1 transaction succeeded.');
+      };
+      read_transaction.onerror = () => {
+        log(`ERROR: explainer_example_1 transaction failed with: ${read_transaction.error}.`);
+      };
+      const object_store = read_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const queries = [
+        { query: 1 },
+        { query: 5 },
+        { query: 9 }
+      ];
+      if ('putAll' in object_store) {
+        request = object_store.getAll(queries);
+      } else {
+        request = batched_get_all_polyfill(object_store, 'getAll', queries);
+      }
+      request.onsuccess = event => {
+        // `request.result` is an array of query results, which is an array of arrays.
+        const [first_record_value, fifth_record_value, ninth_record_value] = request.result.map(
+          query_results => {
+            // For this request for specific records, each query result contains an array with either 1 or 0 record values.
+            // Queries that do not match any records produce empty arrays.      
+            return query_results.length === 1 ? query_results[0] : undefined;
+          });
+        log(`1st value: ${JSON.stringify(first_record_value)}`);
+        log(`5th value: ${JSON.stringify(fifth_record_value)}`);
+        log(`9th value: ${JSON.stringify(ninth_record_value)}`);
+      };
+      request.onerror = event => {
+        log(`ERROR: getAll() failed: ${request.error}`);
+      };
+    });
+  }
+
+  function explainer_example_2() {
+    database_promise.then(indexed_database => {
+      const read_transaction = indexed_database.transaction(kObjectStoreName);
+      read_transaction.oncomplete = () => {
+        log('explainer_example_2 transaction succeeded.');
+      };
+      read_transaction.onerror = () => {
+        log(`ERROR: explainer_example_2 transaction failed with: ${read_transaction.error}.`);
+      };
+      const object_store = read_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const queries = [
+        { count: 3 },
+        { count: 3, direction: 'prev' },
+      ];
+      if ('putAll' in object_store) {
+        request = object_store.getAllRecords(queries);
+      } else {
+        request = batched_get_all_polyfill(object_store, 'getAllRecords', queries);
+      }
+      request.onsuccess = event => {
+        const [first_three_records, last_three_records] = request.result;
+        log("<b>First 3 records</b>");
+        log_records(first_three_records);
+
+        log("<b>Last 3 records</b>");
+        log_records(last_three_records);
+      };
+      request.onerror = event => {
+        log(`ERROR: getAllRecords() failed: ${request.error}`);
+      };
+    });
+  }
+
+  function batched_write_all_polyfill(object_store, write_all_function_name, records) {
+    const request_polyfill = new Object();
+    request_polyfill.onsuccess = null;
+    request_polyfill.onerror = null;
+    request_polyfill.result = null;
+    request_polyfill.error = null;
+
+    const write_requests = [];
+    const write_results = [];
+    const write_errors = [];
+
+    const maybe_complete_request = function () {
+      if (write_results.length + write_errors.length === records.length) {
+        setTimeout(() => {
+          const event_polyfill = new Object();
+          event_polyfill.target = request_polyfill;
+          if (write_errors.length > 0) {
+            request_polyfill.error = write_errors[0];
+            if (typeof (request_polyfill.onerror) === "function") {
+              request_polyfill.onerror(event_polyfill);
+            }
+          } else {
+            request_polyfill.result = write_results;
+            if (typeof (request_polyfill.onsuccess) === "function") {
+              request_polyfill.onsuccess(event_polyfill)
+            }
+          }
+        }, 0);
+      }
+    };
+
+    for (const record of records) {
+      try {
+        const write_all_request = object_store[write_all_function_name](record.value, record.key);
+        write_all_request.onsuccess = event => {
+          write_results.push(event.target.result);
+          maybe_complete_request();
+        };
+        write_all_request.onerror = event => {
+          write_errors.push(event.target.error);
+          maybe_complete_request();
+        };
+        write_requests.push(write_all_request);
+      } catch (error) {
+        write_errors.push(error);
+        maybe_complete_request();
+      }
+    }
+    return request_polyfill;
+  }
+
+  function explainer_example_3() {
+    database_promise.then(indexed_database => {
+      const readwrite_transaction = indexed_database.transaction(kObjectStoreName, "readwrite");
+      readwrite_transaction.oncomplete = () => {
+        log('explainer_example_3 transaction succeeded.');
+      };
+      readwrite_transaction.onerror = () => {
+        log(`ERROR: explainer_example_3 transaction failed with: ${readwrite_transaction.error}.`);
+      };
+      const object_store = readwrite_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const records = [
+        {
+          value: {
+            name: "Mega Man 2",
+            developer: "Capcom",
+            genre: "Action-adventure",
+            year: 1989,
+          }
+        },
+        {
+          value: {
+            name: "Bionic Commando",
+            developer: "Capcom",
+            genre: "Action-adventure",
+            year: 1988,
+          }
+        },
+        {
+          value: {
+            name: "Kirby's Adventure",
+            developer: "HAL Laboratory",
+            genre: "Platformer",
+            year: 1993,
+          }
+        },
+      ];
+      if ('addAll' in object_store) {
+        request = object_store.addAll(records);
+      } else {
+        request = batched_write_all_polyfill(object_store, 'add', records);
+      }
+      request.onsuccess = event => {
+        const [first_key, second_key, third_key] = request.result;
+        log(`First new key: ${first_key}`);
+        log(`Second new key: ${second_key}`);
+        log(`Third new key: ${third_key}`);
+      };
+      request.onerror = event => {
+        log(`ERROR: addAll() failed: ${request.error}`);
+      };
+    });
+  }
+
+  function explainer_example_4() {
+    database_promise.then(indexed_database => {
+      const readwrite_transaction = indexed_database.transaction(kObjectStoreName, "readwrite");
+      readwrite_transaction.oncomplete = () => {
+        log('explainer_example_4 transaction succeeded.');
+      };
+      readwrite_transaction.onerror = () => {
+        log(`ERROR: explainer_example_4 transaction failed with: ${readwrite_transaction.error}.`);
+      };
+      const object_store = readwrite_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const records = [
+        {
+          value: {
+            name: "The Legend of Zelda",
+            developer: "Nintendo",
+            genre: "Action-adventure",
+            year: 2086,
+          },
+          key: 1
+        },
+        {
+          value: {
+            name: "Super Mario Bros.",
+            developer: "Nintendo",
+            genre: "Platformer",
+            year: 2085,
+          },
+          key: 2
+        },
+        {
+          value: {
+            name: "Metroid",
+            developer: "Nintendo",
+            genre: "Action-adventure",
+            year: 2086,
+          },
+          key: 3
+        },
+      ];
+      if ('putAll' in object_store) {
+        request = object_store.putAll(records);
+      } else {
+        request = batched_write_all_polyfill(object_store, 'put', records);
+      }
+      request.onsuccess = event => {
+        const [first_key, second_key, third_key] = request.result;
+        log(`First key: ${first_key}`);
+        log(`Second key: ${second_key}`);
+        log(`Third key: ${third_key}`);
+      };
+      request.onerror = event => {
+        log(`ERROR: putAll() failed: ${request.error}`);
+      };
+    });
+  }
+
+  function batched_delete_polyfill(object_store, queries) {
+    const request_polyfill = new Object();
+    request_polyfill.onsuccess = null;
+    request_polyfill.onerror = null;
+    request_polyfill.error = null;
+
+    const delete_requests = [];
+    const delete_results = [];
+    const delete_errors = [];
+
+    const maybe_complete_request = function () {
+      if (delete_results.length + delete_errors.length === queries.length) {
+        setTimeout(() => {
+          const event_polyfill = new Object();
+          event_polyfill.target = request_polyfill;
+          if (delete_errors.length > 0) {
+            request_polyfill.error = delete_errors[0];
+            if (typeof (request_polyfill.onerror) === "function") {
+              request_polyfill.onerror(event_polyfill);
+            }
+          } else {
+            if (typeof (request_polyfill.onsuccess) === "function") {
+              request_polyfill.onsuccess(event_polyfill)
+            }
+          }
+        }, 0);
+      }
+    };
+
+    for (const query of queries) {
+      try {
+        const delete_all_request = object_store.delete(query.query);
+        delete_all_request.onsuccess = event => {
+          delete_results.push(event.target.result);
+          maybe_complete_request();
+        };
+        delete_all_request.onerror = event => {
+          delete_errors.push(event.target.error);
+          maybe_complete_request();
+        };
+        delete_requests.push(delete_all_request);
+      } catch (error) {
+        delete_errors.push(error);
+        maybe_complete_request();
+      }
+    }
+    return request_polyfill;
+  }
+
+  function explainer_example_5() {
+    database_promise.then(indexed_database => {
+      const readwrite_transaction = indexed_database.transaction(kObjectStoreName, "readwrite");
+      readwrite_transaction.oncomplete = () => {
+        log('explainer_example_5 transaction succeeded.');
+      };
+      readwrite_transaction.onerror = () => {
+        log(`ERROR: explainer_example_5 transaction failed with: ${readwrite_transaction.error}.`);
+      };
+      const object_store = readwrite_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const queries = [
+        {
+          query: 1
+        },
+        {
+          query: 5
+        },
+        {
+          query: 9
+        },
+      ];
+      if ('putAll' in object_store) {
+        request = object_store.delete(queries);
+      } else {
+        request = batched_delete_polyfill(object_store, queries);
+      }
+      request.onsuccess = event => {
+        log(`delete() succeeded`);
+      };
+      request.onerror = event => {
+        log(`ERROR: delete() failed: ${request.error}`);
+      };
+    });
+  }
+
+  function explainer_example_6() {
+    database_promise.then(indexed_database => {
+      const readwrite_transaction = indexed_database.transaction(kObjectStoreName, "readwrite");
+      readwrite_transaction.oncomplete = () => {
+        log('explainer_example_6 transaction succeeded.');
+      };
+      readwrite_transaction.onerror = () => {
+        log(`ERROR: explainer_example_6 transaction failed with: ${readwrite_transaction.error}.`);
+      };
+      const object_store = readwrite_transaction.objectStore(kObjectStoreName);
+
+      let request;
+      const queries = [
+        {
+          query: IDBKeyRange.upperBound(3)
+        },
+        {
+          query: IDBKeyRange.lowerBound(7)
+        },        
+      ];
+      if ('putAll' in object_store) {
+        request = object_store.delete(queries);
+      } else {
+        request = batched_delete_polyfill(object_store, queries);
+      }
+      request.onsuccess = event => {
+        log(`delete() succeeded`);
+      };
+      request.onerror = event => {
+        log(`ERROR: delete() failed: ${request.error}`);
+      };
+    });
+  }
+
+
+</script>
+
+</html>
