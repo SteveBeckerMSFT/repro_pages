@@ -9,11 +9,15 @@ async function update_permission_status() {
         enumerate_devices();
         document.getElementById("request_permission").style.display = "none";
         document.getElementById("audio_output_controls").style.display = "grid";
-        document.getElementById("iframe_samples").style.display = "grid";
+        if (document.getElementById("iframe_samples")) {
+            document.getElementById("iframe_samples").style.display = "grid";
+        }
     } else {
         document.getElementById("request_permission").style.display = "grid";
         document.getElementById("audio_output_controls").style.display = "none";
-        document.getElementById("iframe_samples").style.display = "none";
+        if (document.getElementById("iframe_samples")) {
+            document.getElementById("iframe_samples").style.display = "none";
+        }
     }
     permission_status.onchange = update_permission_status;
 }
@@ -29,9 +33,6 @@ async function request_permission() {
         const media_stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         for (const track of media_stream.getTracks()) {
             track.stop();
-        }
-        for (iframe of document.getElementsByTagName('iframe')) {
-            iframe.src = iframe.src;
         }
     } catch (error) {
         console.error(`ERROR: getUserMedia() failed with: ${error}`);
