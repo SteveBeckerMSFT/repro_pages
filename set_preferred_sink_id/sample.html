@@ -1,0 +1,109 @@
+<html>
+<title>setPreferredSinkId() Demo</title>
+<style>
+    .three-column-grid-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+    }
+
+    .two-column-grid-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 5px;
+    }
+
+    .grid-item {
+        border: solid 1px black;
+        border-radius: 5px;
+        padding: 5px;
+    }
+
+    .frame-title {
+        margin: 7px;
+    }
+</style>
+
+<body style="background-color: #323130;">
+    <div class="two-column-grid-container">
+        <div class="grid-item" style="background-color: white;">
+            <p>
+                <b>setPreferredSinkId()</b> enables a top-level frame to override the default audio output device for
+                all audio renderers in the top-level frame and its child frames, including cross-origin child frames. To
+                enable in Edge/Chrome, use the following flag or command line argument:
+            </p>
+            <p>
+                <b>Flag:</b> about://flags/#enable-experimental-web-platform-features<br />
+                <b>Command Line:</b> --enable-features=PreferredAudioOutputDevices</span>
+            </p>
+        </div>
+        <div class="grid-item" style="background-color: white; width: 25%;">
+            <p>
+            <p style="margin:0"><b>Learn more</b></p>
+            <list>
+                <li><a
+                        href="https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/SetPreferredSinkId/explainer.md">Explainer</a>
+                </li>
+                <li><a href="https://chromestatus.com/feature/5098834847072256">Chrome Status</a></li>
+                <li><a href="https://issues.chromium.org/issues/337094880">Chromium Bug</a></li>
+            </list>
+            </p>
+        </div>
+    </div>
+    <br />
+    <div id="request_permission" style="visibility: none; background-color: #e6effc;" class="grid-item">
+        <h3>This demo requires microphone access to enumerate audio output devices.</h3>
+        <button onclick="request_permission()" style="height: 100px; width: 25%">Request Permission</button>
+    </div>
+    <div class="grid-item" style="background-color: #e6effc;" id="audio_output_controls">
+        <h3 class="frame-title">Top-Level Frame:</h3>
+        <div class="three-column-grid-container">
+            <div class="grid-item">
+                <h3>navigator.mediaDevices.setPreferredSinkId()</h3>
+                <label for="preferred_sink_id">Select device:</label>
+                <select id="preferred_sink_id"
+                    onchange="set_preferred_sink_id(event.target.options[event.target.selectedIndex].text, event.target.value)"></select><br />
+                <br />
+                <div id="preferred_sink_id_value"><b>sinkId:</b> ""</div>
+            </div>
+            <div class="grid-item">
+                <h3>HTMLAudioElement.setSinkId()</h3>
+                <label for="audio_element_sink_id">Select device:</label>
+                <select id="audio_element_sink_id"
+                    onchange="set_audio_element_sink_id(event.target.options[event.target.selectedIndex].text, event.target.value)"></select><br />
+                <br />
+                <audio id="audio_element" src="plasterbrain__loop-by-the-sea(chosic.com).mp3" controls
+                    loop></audio><br />
+                <br />
+                <div id="audio_element_sink_id_value"><b>sinkId:</b> ""</div>
+            </div>
+            <div class="grid-item">
+                <h3>AudioContext.setSinkId()</h3>
+                <label for="audio_context_sink_id">Select device:</label>
+                <select id="audio_context_sink_id"
+                    onchange="set_audio_context_sink_id(event.target.options[event.target.selectedIndex].text, event.target.value)"></select><br />
+                <br />
+                <button onclick="play_webaudio()">Play</button>&nbsp;&nbsp;<button
+                    onclick="pause_web_audio()">Pause</button><br />
+                <br />
+                <div id="audio_context_sink_id_value"><b>sinkId:</b> ""</div><br />
+                <br />
+            </div>
+        </div>
+    </div>
+    <br />
+    <div id="iframe_samples" class="two-column-grid-container">
+        <div class="grid-item" style="background-color: #eaf5e4;">
+            <h3 class="frame-title">Same Origin Iframe:</h3>
+            <iframe src="iframe.html" style="width: 100%; height: 260px; border:none"></iframe>
+        </div>
+        <div class="grid-item" style="background-color: #fce6e6;">
+            <h3 class="frame-title">Cross-Origin Iframe:</h3>
+            <iframe src="https://talkingoctopus.github.io/repro_pages/set_preferred_sink_id/iframe.html"
+                style="width: 100%; height: 260px; border:none;" allow="microphone https://talkingoctopus.github.io"></iframe>
+        </div>
+    </div>
+</body>
+<script src="sample.js"></script>
+
+</html>

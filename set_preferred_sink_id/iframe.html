@@ -1,0 +1,49 @@
+<html>
+<title>setPreferredSinkId() Demo: Same Origin Iframe</title>
+<style>
+    .two-column-grid-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 5px;
+    }
+
+    .grid-item {
+        border: solid 1px black;
+        border-radius: 5px;
+        padding: 5px;
+    }
+</style>
+
+<body>
+    <div id="request_permission" style="visibility: none;">
+        <h3>This demo requires microphone access to enumerate audio output devices.</h3>
+        <button onclick="request_permission()" style="height: 100px; width: 25%">Request Permission</button>
+    </div>
+    <div id="audio_output_controls" class="two-column-grid-container">
+        <div class="grid-item">
+            <h3>HTMLAudioElement.setSinkId()</h3>
+            <label for="audio_element_sink_id">Select device:</label>
+            <select id="audio_element_sink_id"
+                onchange="set_audio_element_sink_id(event.target.options[event.target.selectedIndex].text, event.target.value)"></select><br />
+            <br />
+            <audio id="audio_element" src="plasterbrain__loop-by-the-sea(chosic.com).mp3" controls loop></audio><br />
+            <br />
+            <div id="audio_element_sink_id_value"><b>sinkId:</b> ""</div>
+        </div>
+        <div class="grid-item">
+            <h3>AudioContext.setSinkId()</h3>
+            <label for="audio_context_sink_id">Select device:</label>
+            <select id="audio_context_sink_id"
+                onchange="set_audio_context_sink_id(event.target.options[event.target.selectedIndex].text, event.target.value)"></select><br />
+            <br />
+            <button onclick="play_webaudio()">Play</button>&nbsp;&nbsp;<button
+                onclick="pause_web_audio()">Pause</button><br />
+            <br />
+            <div id="audio_context_sink_id_value"><b>sinkId:</b> ""</div><br />
+            <br />
+        </div>
+    </div>
+</body>
+<script src="sample.js"></script>
+
+</html>
