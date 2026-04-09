@@ -30,6 +30,9 @@ async function request_permission() {
         for (const track of media_stream.getTracks()) {
             track.stop();
         }
+        for (iframe of document.getElementsByTagName('iframe')) {
+            iframe.src = iframe.src;
+        }
     } catch (error) {
         console.error(`ERROR: getUserMedia() failed with: ${error}`);
     }
